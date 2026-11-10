@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cloudflare IP Data</title>
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --shadow-color-soft: rgba(0, 0, 0, 0.06);
+            --surface-muted: #f8fafc;
+            --surface-strong: #f9fafb;
+            --input-bg: #ffffff;
+            --status-bg: #ecfdf5;
+            --status-text: #065f46;
+            --log-bg: #1e293b;
+            --log-text: #10b981;
+            --modal-overlay-bg: rgba(15, 23, 42, 0.5);
+            --radius: 8px;
+            --shadow: 0 4px 6px -1px var(--shadow-color), 0 2px 4px -1px var(--shadow-color-soft);
+        }
+
+        body.dark-theme {
+            --bg-color: #0f172a;
+            --card-bg: #111827;
+            --text-main: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --border-color: #374151;
+            --shadow-color: rgba(0, 0, 0, 0.35);
+            --shadow-color-soft: rgba(0, 0, 0, 0.25);
+            --surface-muted: #1f2937;
+            --surface-strong: #111827;
+            --input-bg: #0f172a;
+            --status-bg: #052e2b;
+            --status-text: #6ee7b7;
+            --log-bg: #020617;
+            --log-text: #34d399;
+            --modal-overlay-bg: rgba(2, 6, 23, 0.72);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 15px;
+            line-height: 1.5;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .page-header {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 4px 0 8px;
+        }
+
+        .page-title-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-self: center;
+            text-align: center;
+            gap: 2px;
+        }
+
+        .page-subtitle {
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .page-title {
+            color: var(--text-main);
+            margin: 0;
+            font-size: 1.5rem;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .theme-switcher {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            justify-self: end;
+            padding: 4px;
+            border: 1px solid var(--border-color);
+            background: var(--surface-muted);
+            border-radius: 999px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .theme-pill {
+            min-width: 64px;
+            height: 34px;
+            padding: 0 12px;
+            border: none;
+            border-radius: 999px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .theme-pill.active {
+            background: var(--card-bg);
+            color: var(--text-main);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        }
+
+        .theme-pill:hover {
+            color: var(--text-main);
+        }
+
+        h1 {
+            color: var(--text-main);
+            margin: 0;
+            font-size: 1.5rem;
+            text-align: left;
+            font-weight: 700;
+        }
+
+        /* 状态栏 */
+        .status-bar {
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            background: var(--status-bg);
+            color: var(--status-text);
+            border-radius: 14px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        .status-icon,
+        .action-icon,
+        .section-icon {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        .status-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, 0.14);
+            color: var(--success-color);
+            font-size: 14px;
+        }
+
+        .status-text {
+            min-width: 0;
+            font-weight: 600;
+        }
+
+        /* 控制区域 */
+        .controls {
+            background: var(--surface-muted);
+            border: 1px solid var(--border-color);
+            padding: 16px;
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .controls-row {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+
+        .controls-row-wide {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            font-weight: 600;
+            text-align: left;
+        }
+
+        select, input {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--input-bg);
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        /* 按钮样式 */
+        .app-actions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .app-action-btn {
+            min-height: 64px;
+            padding: 12px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+        }
+
+        .action-icon {
+            font-size: 18px;
+        }
+
+        .app-action-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .app-action-btn:active {
+            transform: scale(0.98);
+            opacity: 0.92;
+        }
+
+        .app-action-btn .action-title {
+            font-size: 15px;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .app-action-btn .action-subtitle {
+            font-size: 11px;
+            line-height: 1.2;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .app-action-btn.primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+
+        .app-action-btn.neutral {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+        }
+
+        .app-action-btn.accent {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        }
+
+        .app-action-btn:disabled {
+            background: #9ca3af !important;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* 进度条 */
+        .progress-container {
+            width: 100%;
+            background-color: #e5e7eb;
+            border-radius: 10px;
+            margin: 20px 0 24px;
+            height: 20px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(45deg, var(--primary-color) 25%, #60a5fa 25%, #60a5fa 50%, var(--primary-color) 50%, var(--primary-color) 75%, #60a5fa 75%, #60a5fa);
+            background-size: 20px 20px;
+            animation: stripe 1s linear infinite;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+            font-size: 11px;
+            transition: width 0.3s ease;
+        }
+
+        @keyframes stripe {
+            0% { background-position: 0 0; }
+            100% { background-position: 20px 20px; }
+        }
+
+        /* 选项卡 */
+        .tabs-wrap {
+            display: flex;
+            justify-content: center;
+            margin: 8px 0 24px;
+        }
+
+        .tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            background: var(--surface-muted);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .tab {
+            padding: 10px 18px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-weight: 600;
+            border: none;
+            border-radius: 999px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .tab.active {
+            color: var(--text-main);
+            background: var(--card-bg);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        }
+
+        .tab-content { display: none; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 内容区块 */
+        .section-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: -15px -15px 15px;
+            padding: 14px 16px;
+            background: var(--surface-muted);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .section-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 10px;
+            background: rgba(59, 130, 246, 0.12);
+            color: var(--primary-color);
+            font-size: 15px;
+        }
+
+        .section-title {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .section-desc {
+            margin: 0 0 15px 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .section-header-spacer {
+            margin-left: auto;
+        }
+
+        .badge {
+            background: var(--primary-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        /* 表格样式 */
+        .scroll-table, .scroll-table-lg {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--card-bg);
+        }
+
+        .scroll-table { max-height: 300px; }
+        .scroll-table-lg { max-height: 500px; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        #testingDC {
+            margin-left: auto;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: normal;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 55%;
+            text-align: right;
+        }
+
+        .scan-ip-cell,
+        .dc-text-cell,
+        .test-ip-cell,
+        .metric-cell,
+        .speed-result {
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: var(--surface-strong);
+            font-weight: 600;
+            color: var(--text-secondary);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            white-space: nowrap;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background-color: var(--surface-muted); }
+
+        /* 小按钮样式 */
+        .action-btn {
+            padding: 6px 12px;
+            background-color: var(--warning-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+        }
+
+        .action-btn:hover { opacity: 0.9; }
+        .action-btn.selected { background-color: var(--success-color); }
+        .action-btn.loading { background-color: #4b5563; color: #ffffff; }
+        .action-btn:disabled { background-color: #d1d5db; color: #9ca3af; }
+        .action-btn.loading:disabled { background-color: #4b5563; color: #ffffff; opacity: 1; }
+
+        /* 点击复制的样式 */
+        .copy-ip {
+            cursor: pointer;
+            border-bottom: 1px dashed #9ca3af;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .copy-ip:hover {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        .copy-ip:active {
+            opacity: 0.7;
+        }
+
+        /* 日志窗口 */
+        .log-box {
+            height: 200px;
+            overflow-y: auto;
+            background: var(--log-bg);
+            color: var(--log-text);
+            padding: 15px;
+            border-radius: var(--radius);
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 20px;
+            line-height: 1.4;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .mobile-short-label { display: none; }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--modal-overlay-bg);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 1000;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            width: min(420px, 100%);
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+        }
+
+        .modal h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+
+        .modal p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .modal-btn {
+            min-height: 40px;
+            padding: 10px 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* 状态标签 */
+        .test-status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+        .test-status.testing { background: #fef3c7; color: #d97706; }
+        .test-status.done { background: #d1fae5; color: #059669; }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .container { padding: 15px; border-radius: 8px; }
+            .page-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; }
+            h1, .page-title { font-size: 1.25rem; }
+            .page-title-wrap { width: 100%; order: 1; }
+            .theme-switcher { width: 100%; justify-content: center; order: 2; }
+            .theme-pill { flex: 1; min-width: 0; }
+            .tabs-wrap { justify-content: stretch; }
+            .tabs { display: flex; width: 100%; }
+            .tab { flex: 1; text-align: center; }
+            .controls { padding: 12px; }
+            .controls-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+            .controls-row-wide { grid-template-columns: 1fr; }
+            .app-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+            .app-action-btn { min-height: 58px; padding: 10px 10px; border-radius: 14px; }
+            .app-action-btn .action-title { font-size: 14px; }
+            .app-action-btn .action-subtitle { font-size: 10px; }
+            .form-group label { font-size: 13px; margin-bottom: 4px; text-align: left; }
+            select, input { padding: 8px; font-size: 13px; }
+            th, td { padding: 10px; font-size: 13px; }
+        }
+
+        @media (max-width: 480px) {
+            .controls { padding: 10px; }
+            .controls-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+            .app-actions { grid-template-columns: 1fr; gap: 8px; }
+            .app-action-btn { min-height: 54px; padding: 9px 10px; border-radius: 12px; }
+            .app-action-btn .action-title { font-size: 13px; }
+            .app-action-btn .action-subtitle { font-size: 10px; }
+            .form-group label { font-size: 12px; margin-bottom: 3px; text-align: left; }
+            .mobile-short-label { display: inline; }
+            .mobile-full-label { display: none; }
+            select, input { padding: 7px 6px; font-size: 12px; }
+        }
+
+        /* ---- 全量 IP 导出工具条（安卓端 / 浏览器通用） ---- */
+        .export-bar {
+            margin: 10px 0 14px;
+            padding: 10px;
+            border: 1px solid var(--border-color, #d1d5db);
+            border-radius: 10px;
+            background: var(--card-bg, #fff);
+        }
+        .export-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .export-btn {
+            flex: 1 1 auto;
+            min-width: 88px;
+            padding: 9px 8px;
+            font-size: 13px;
+            border-radius: 8px;
+            border: 1px solid var(--primary-color, #3b82f6);
+            background: var(--primary-color, #3b82f6);
+            color: #fff;
+            cursor: pointer;
+        }
+        .export-btn.ghost {
+            background: transparent;
+            color: var(--primary-color, #3b82f6);
+        }
+        .export-btn:active { opacity: .7; }
+        .export-count {
+            font-size: 12px;
+            opacity: .75;
+            white-space: nowrap;
+            margin-left: 4px;
+        }
+        .export-text {
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 9px;
+            min-height: 76px;
+            padding: 8px 10px;
+            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            resize: vertical;
+            border: 1px solid var(--border-color, #d1d5db);
+            border-radius: 8px;
+            background: var(--input-bg, #f9fafb);
+            color: var(--text-color, #111827);
+        }
+        .export-hint { font-size: 11px; opacity: .65; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <div class="page-title-wrap">
+                <h1 class="page-title">Cloudflare IP Data</h1>
+                <div class="page-subtitle">扫描、测试与整理 Cloudflare IP</div>
+            </div>
+            <div class="theme-switcher" role="tablist" aria-label="主题切换">
+                <button type="button" class="theme-pill" id="themeLight" onclick="setThemeMode('light')">日间</button>
+                <button type="button" class="theme-pill" id="themeDark" onclick="setThemeMode('dark')">夜间</button>
+            </div>
+            <div></div>
+        </div>
+
+        <div class="status-bar" id="status">
+            <span class="status-icon">●</span>
+            <span class="status-text">正在连接服务器...</span>
+        </div>
+
+        <!-- 全量 IP 导出：不依赖表格行数，直接从后端 /api/ips 取全量 -->
+        <div class="export-bar">
+            <div class="export-row">
+                <button type="button" class="export-btn" onclick="cfdataCopyAll()">📋 全选复制</button>
+                <button type="button" class="export-btn" onclick="cfdataSaveTxt()">💾 保存 TXT</button>
+                <button type="button" class="export-btn" onclick="cfdataShare()">📤 分享</button>
+                <button type="button" class="export-btn ghost" onclick="cfdataDiag()">🩺 网络自检</button>
+                <span class="export-count" id="exportCount">0 个 IP</span>
+            </div>
+            <textarea id="exportText" class="export-text" readonly spellcheck="false"
+                      onclick="this.focus();this.select();"
+                      placeholder="扫描完成后，这里列出全部 IP（一行一个）。可长按「全选」直接复制，或用上方按钮一键复制 / 保存。"></textarea>
+            <div class="export-hint">提示：此列表来自服务端全量结果，不受表格最多 500 行的显示限制。</div>
+        </div>
+
+        <!-- 统一任务页面 -->
+        <div class="controls">
+            <div class="controls-row">
+                <div class="form-group">
+                    <label><span class="mobile-full-label">IP类型</span><span class="mobile-short-label">IP类型</span></label>
+                    <select id="ipType">
+                        <option value="4">IPv4</option>
+                        <option value="6">IPv6</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label><span class="mobile-full-label">并发数</span><span class="mobile-short-label">并发数</span></label>
+                    <input type="number" id="scanThreads" value="64" placeholder="默认64">
+                </div>
+
+                <div class="form-group">
+                    <label><span class="mobile-full-label">端口</span><span class="mobile-short-label">端口</span></label>
+                    <select id="testPort">
+                        <optgroup label="HTTPS (默认)">
+                            <option value="443" selected>443</option>
+                            <option value="2053">2053</option>
+                            <option value="2083">2083</option>
+                            <option value="2087">2087</option>
+                            <option value="2096">2096</option>
+                            <option value="8443">8443</option>
+                        </optgroup>
+                        <optgroup label="HTTP">
+                            <option value="80">80</option>
+                            <option value="8080">8080</option>
+                            <option value="8880">8880</option>
+                            <option value="2052">2052</option>
+                            <option value="2082">2082</option>
+                            <option value="2086">2086</option>
+                            <option value="2095">2095</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label><span class="mobile-full-label">延迟(ms)</span><span class="mobile-short-label">延迟(ms)</span></label>
+                    <input type="number" id="testDelay" value="500" placeholder="默认500">
+                </div>
+            </div>
+
+            <!-- 移动端扫描参数：避免 6500 个子网一次打满手机 NAT / radio -->
+            <div class="controls-row">
+                <div class="form-group">
+                    <label><span class="mobile-full-label">采样子网数</span><span class="mobile-short-label">采样</span></label>
+                    <input type="number" id="scanSample" value="1200" min="50" max="6534" placeholder="默认1200">
+                </div>
+
+                <div class="form-group">
+                    <label><span class="mobile-full-label">握手超时(ms)</span><span class="mobile-short-label">超时</span></label>
+                    <input type="number" id="scanTimeout" value="1500" min="200" max="5000" placeholder="默认1500">
+                </div>
+
+                <div class="form-group">
+                    <label><span class="mobile-full-label">宽松模式</span><span class="mobile-short-label">宽松</span></label>
+                    <select id="scanLoose">
+                        <option value="0" selected>关 · 严格校验</option>
+                        <option value="1">开 · 连通即收</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label><span class="mobile-full-label">网络预设</span><span class="mobile-short-label">预设</span></label>
+                    <select id="netPreset" onchange="applyNetPreset()">
+                        <option value="mobile" selected>移动网络 · 稳</option>
+                        <option value="wifi">WiFi · 快</option>
+                        <option value="full">全量 · 慢</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="controls-row-wide">
+                <div class="form-group">
+                    <label>测速 URL</label>
+                    <input type="text" id="speedUrl" value="speed.cloudflare.com/__down?bytes=10000000" placeholder="默认 speed.cloudflare.com/__down?bytes=10000000">
+                </div>
+            </div>
+
+            <div class="app-actions">
+                <button onclick="handlePrimaryAction()" id="btnStart" class="app-action-btn primary">
+                    <span class="action-icon">▶</span>
+                    <span class="action-title">开始扫描与测试</span>
+                    <span class="action-subtitle">扫描、暂停与继续</span>
+                </button>
+                <button onclick="restoreDefaults()" id="btnRestoreDefaults" class="app-action-btn neutral">
+                    <span class="action-icon">↺</span>
+                    <span class="action-title">恢复默认设置</span>
+                    <span class="action-subtitle">重置测速与资源</span>
+                </button>
+                <button onclick="compactIPv4Library()" id="btnCompactIPv4" class="app-action-btn accent">
+                    <span class="action-icon">✦</span>
+                    <span class="action-title">精简 IPv4 地址库</span>
+                    <span class="action-subtitle">覆盖原有 IPv4 列表</span>
+                </button>
+            </div>
+            </div>
+        </div>
+        
+        <div class="progress-container" id="progressBox">
+            <div class="progress-bar" id="progressBar">0%</div>
+        </div>
+
+        <div class="tabs-wrap">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('scan')">扫描结果</div>
+                <div class="tab" onclick="switchTab('test')">详细测试</div>
+            </div>
+        </div>
+
+        <!-- 扫描结果页面 -->
+        <div id="scan" class="tab-content active">
+            <!-- 数据中心汇总 -->
+            <div class="section-box" id="dcSection" style="display:none;">
+                <div class="section-header">
+                    <span class="section-icon">⌂</span>
+                    <h3 class="section-title">数据中心汇总</h3>
+                    <span class="badge" id="dcCount">0</span>
+                    <span id="currentTestDC" class="test-status" style="display:none;"></span>
+                </div>
+                <p class="section-desc">点击下方"选择测试"对指定数据中心的IP进行详细测速。</p>
+                <div class="scroll-table">
+                    <table id="dcTable">
+                        <thead>
+                            <tr>
+                                <th>数据中心</th>
+                                <th>地区</th>
+                                <th>城市</th>
+                                <th>IP数量</th>
+                                <th>最低延迟</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 实时扫描结果 -->
+            <div class="section-box">
+                <div class="section-header">
+                    <span class="section-icon">◎</span>
+                    <h3 class="section-title">实时扫描结果</h3>
+                    <span class="badge" id="scanCount">0</span>
+                </div>
+                <div class="scroll-table-lg">
+                    <table id="scanTable">
+                        <thead>
+                            <tr>
+                                <th>IP地址 (点击复制)</th>
+                                <th>数据中心</th>
+                                <th>地区</th>
+                                <th>城市</th>
+                                <th>延迟</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详细测试结果页面 -->
+        <div id="test" class="tab-content">
+            <div class="section-box">
+                <div class="section-header">
+                    <span class="section-icon">☄</span>
+                    <h3 class="section-title">详细测试结果</h3>
+                    <span class="badge" id="testCount">0</span>
+                    <span id="testingDC"></span>
+                </div>
+                <p class="section-desc">点击"测速"按钮对单个IP进行下载速度测试。点击IP可复制。</p>
+                <div class="scroll-table-lg">
+                    <table id="testTable">
+                        <thead>
+                            <tr>
+                                <th>IP地址</th>
+                                <th>丢包率</th>
+                                <th>最小延迟</th>
+                                <th>最大延迟</th>
+                                <th>平均延迟</th>
+                                <th>测速</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-box" id="logBox">
+            <div>[系统] 等待操作...</div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal">
+            <h3 id="confirmTitle">请确认</h3>
+            <p id="confirmMessage"></p>
+            <div class="modal-actions">
+                <button class="modal-btn" id="confirmCancel" style="background:#e5e7eb;color:#111827;">取消</button>
+                <button class="modal-btn" id="confirmOk" style="background:#2563eb;color:#fff;">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let scanResultsCount = 0;
+        let testResultsCount = 0;
+        let dcList = []; 
+        let currentTestingDC = ''; 
+        let testedDCs = new Set(); 
+        
+        let scanData = [];
+        let testData = [];
+        let isScanPaused = false;
+        let isScanRunning = false;
+        let isBusyAction = false;
+        let isDetailedTestRunning = false;
+        let confirmAction = null;
+
+        function connect() {
+            ws = new WebSocket("ws://" + window.location.host + "/ws");
+            
+            ws.onopen = () => {
+                updateStatus("已连接服务器", true);
+                log("已连接到服务器");
+            };
+            
+            ws.onclose = () => {
+                updateStatus("连接断开，3秒后重连...", false);
+                log("连接断开，正在重连...");
+                setTimeout(connect, 3000);
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                handleMessage(msg);
+            };
+        }
+
+        function handleMessage(msg) {
+            switch(msg.type) {
+                case 'log':
+                    if (typeof msg.data === 'string' && msg.data.includes('继续扫描中')) {
+                        isScanPaused = false;
+                        isScanRunning = true;
+                        setActionButtonsDisabled(true);
+                        updatePrimaryButton();
+                    }
+                    log(msg.data);
+                    break;
+                case 'scan_progress':
+                    updateProgress(msg.data.current, msg.data.total, "扫描中");
+                    break;
+                case 'scan_result':
+                    addScanResult(msg.data);
+                    break;
+                case 'scan_complete_wait_dc':
+                    if (!isScanPaused) {
+                        isScanRunning = false;
+                        setActionButtonsDisabled(false);
+                    }
+                    updatePrimaryButton();
+                    sortAndRenderScanResults();
+                    showDCSelection(msg.data);
+                    cfdataRefresh(true);
+                    break;
+                case 'scan_paused':
+                    isScanPaused = true;
+                    isScanRunning = true;
+                    setActionButtonsDisabled(true);
+                    updatePrimaryButton();
+                    break;
+                case 'compact_ipv4_progress':
+                    updateCompactIPv4Progress(msg.data);
+                    break;
+                case 'compact_ipv4_done':
+                    isBusyAction = false;
+                    log(`IPv4 地址库精简完成，已保留 ${msg.data.count} 个 /24 子网`);
+                    const compactBar = document.getElementById('progressBar');
+                    compactBar.style.width = '100%';
+                    compactBar.textContent = `IPv4精简完成，保留 ${msg.data.count} 个`;
+                    setActionButtonsDisabled(false);
+                    updatePrimaryButton();
+                    break;
+                case 'reset_resources_done':
+                    isBusyAction = false;
+                    const deletedFiles = (msg.data.deleted || []).join('、') || '无';
+                    log(`默认设置已恢复，已删除资源: ${deletedFiles}`);
+                    log('下次开始扫描时会重新下载并加载 locations 数据');
+                    setActionButtonsDisabled(false);
+                    updatePrimaryButton();
+                    break;
+                case 'test_progress':
+                    isDetailedTestRunning = true;
+                    updateProgress(msg.data.current, msg.data.total, "测试中");
+                    break;
+                case 'test_result':
+                    // 实时显示结果，但不存储用于排序（等待后端完整结果）
+                    addTestResult(msg.data);
+                    break;
+                case 'test_complete':
+                    isDetailedTestRunning = false;
+                    testData = msg.data;
+                    renderAllTestResults();
+                    onTestComplete();
+                    cfdataRefresh(true);
+                    break;
+                case 'test_busy':
+                    log(msg.data && msg.data.message ? msg.data.message : '当前已有数据测试任务，请等待完成后再试');
+                    break;
+                case 'speed_test_result':
+                    updateSpeedResult(msg.data);
+                    break;
+                case 'task_complete':
+                    isBusyAction = false;
+                    isScanRunning = false;
+                    isScanPaused = false;
+                    setActionButtonsDisabled(false);
+                    updatePrimaryButton();
+                    log("任务全部完成");
+                    resetButton("开始扫描与测试");
+                    document.getElementById('progressBar').style.width = '100%';
+                    document.getElementById('progressBar').textContent = '完成';
+                    break;
+                case 'error':
+                    isBusyAction = false;
+                    isScanRunning = false;
+                    isScanPaused = false;
+                    isDetailedTestRunning = false;
+                    setActionButtonsDisabled(false);
+                    updatePrimaryButton();
+                    log("错误: " + msg.data);
+                    resetButton("开始扫描与测试");
+
+                    const pb = document.getElementById('progressBar');
+                    pb.style.background = '#ef4444';
+                    pb.style.width = '100%';
+                    pb.textContent = '任务失败';
+                    break;
+            }
+        }
+        
+        function resetButton(text) {
+            const btn = document.getElementById('btnStart');
+            if (!btn) return;
+            const icon = btn.querySelector('.action-icon');
+            const title = btn.querySelector('.action-title');
+            const subtitle = btn.querySelector('.action-subtitle');
+            btn.disabled = false;
+            if (icon) icon.textContent = '▶';
+            if (title) title.textContent = text;
+            if (subtitle) subtitle.textContent = '扫描、暂停与继续';
+            btn.className = 'app-action-btn primary';
+        }
+
+        function updatePrimaryButton() {
+            const btn = document.getElementById('btnStart');
+            if (!btn) return;
+            const icon = btn.querySelector('.action-icon');
+            const title = btn.querySelector('.action-title');
+            const subtitle = btn.querySelector('.action-subtitle');
+
+            if (isBusyAction) {
+                btn.disabled = true;
+                return;
+            }
+
+            btn.disabled = false;
+            if (isScanRunning) {
+                if (icon) icon.textContent = isScanPaused ? '▶' : '❚❚';
+                if (title) title.textContent = isScanPaused ? '继续扫描' : '暂停扫描';
+                if (subtitle) subtitle.textContent = isScanPaused ? '继续当前扫描任务' : '暂停后可继续';
+                btn.className = isScanPaused ? 'app-action-btn primary' : 'app-action-btn accent';
+                return;
+            }
+
+            if (icon) icon.textContent = '▶';
+            if (title) title.textContent = '开始扫描与测试';
+            if (subtitle) subtitle.textContent = '扫描、暂停与继续';
+            btn.className = 'app-action-btn primary';
+        }
+
+        function handlePrimaryAction() {
+            if (isBusyAction) return;
+            if (isScanRunning) {
+                toggleScanPause();
+                return;
+            }
+            if (isScanPaused) {
+                if (isDetailedTestRunning) {
+                    log('当前有数据中心详细测试进行中，请等待测试完成后再继续扫描');
+                    return;
+                }
+                isScanRunning = true;
+                toggleScanPause();
+                return;
+            }
+            startUnifiedTask();
+        }
+
+        function showConfirmModal(title, message, onConfirm, confirmColor = '#2563eb') {
+            const modal = document.getElementById('confirmModal');
+            const titleEl = document.getElementById('confirmTitle');
+            const messageEl = document.getElementById('confirmMessage');
+            const okBtn = document.getElementById('confirmOk');
+            const cancelBtn = document.getElementById('confirmCancel');
+
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            okBtn.style.background = confirmColor;
+            confirmAction = onConfirm;
+            modal.classList.add('show');
+
+            okBtn.onclick = () => {
+                modal.classList.remove('show');
+                const action = confirmAction;
+                confirmAction = null;
+                if (action) action();
+            };
+
+            cancelBtn.onclick = () => {
+                modal.classList.remove('show');
+                confirmAction = null;
+            };
+        }
+
+        function setActionButtonsDisabled(disabled) {
+            [
+                'btnRestoreDefaults',
+                'btnCompactIPv4',
+                'ipType',
+                'scanThreads',
+                'testPort',
+                'testDelay',
+                'speedUrl'
+            ].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.disabled = disabled;
+            });
+
+            document.querySelectorAll('#dcTable .action-btn, #testTable .action-btn').forEach(btn => {
+                btn.disabled = disabled;
+            });
+
+            updatePrimaryButton();
+        }
+
+        function toggleScanPause() {
+            if (!ws || ws.readyState !== WebSocket.OPEN || !isScanRunning || isBusyAction) return;
+            if (isScanPaused && isDetailedTestRunning) {
+                log('当前有数据中心详细测试进行中，请等待测试完成后再继续扫描');
+                return;
+            }
+
+            const willResume = isScanPaused;
+            ws.send(JSON.stringify({
+                type: willResume ? 'resume_task' : 'pause_task',
+                data: {}
+            }));
+
+            isScanPaused = !willResume;
+            if (willResume) {
+                log('已请求继续扫描');
+            } else {
+                log('已请求暂停扫描');
+            }
+            updatePrimaryButton();
+        }
+
+        function restoreDefaults() {
+            if (!ws || ws.readyState !== WebSocket.OPEN || isBusyAction || isScanRunning) return;
+            showConfirmModal(
+                '恢复默认设置',
+                '确认恢复默认测速 URL，并删除 locations.json、ips-v4.txt、ips-v6.txt 吗？后续运行将重新联网下载。',
+                () => {
+                    const input = document.getElementById('speedUrl');
+                    const def = "speed.cloudflare.com/__down?bytes=10000000";
+                    if (input) {
+                        input.value = def;
+                    }
+                    try {
+                        localStorage.removeItem('cfdata_speed_url');
+                        if (window.Android && typeof Android.saveSpeedUrl === 'function') {
+                            Android.saveSpeedUrl(def);
+                        }
+                    } catch (e) {}
+
+                    isBusyAction = true;
+                    setActionButtonsDisabled(true);
+                    updatePrimaryButton();
+                    log('开始恢复默认设置...');
+                    ws.send(JSON.stringify({
+                        type: 'reset_resources',
+                        data: {}
+                    }));
+                },
+                '#6b7280'
+            );
+        }
+
+        function compactIPv4Library() {
+            if (!ws || ws.readyState !== WebSocket.OPEN || isBusyAction || isScanRunning) return;
+            showConfirmModal(
+                '精简 IPv4 地址库',
+                '确认精简 IPv4 地址库吗？精简结果会覆盖现有 ips-v4.txt。',
+                () => {
+                    isBusyAction = true;
+                    setActionButtonsDisabled(true);
+                    document.getElementById('progressBox').style.display = 'block';
+                    updateProgress(0, 100, 'IPv4精简准备中');
+                    updatePrimaryButton();
+                    log('开始精简 IPv4 地址库...');
+                    ws.send(JSON.stringify({
+                        type: 'compact_ipv4',
+                        data: {}
+                    }));
+                },
+                '#8b5cf6'
+            );
+        }
+
+        function updateCompactIPv4Progress(data) {
+            const current = Number(data.current || 0);
+            const total = Number(data.total || 0);
+            const pass = Number(data.pass || 0);
+            const found = Number(data.found || 0);
+            const status = data.status || 'IPv4精简中';
+
+            if (total > 0) {
+                updateProgress(current, total, `${status} ${current}/${total}`);
+            } else {
+                const bar = document.getElementById('progressBar');
+                bar.style.width = '100%';
+                bar.textContent = `${status}，累计保留 ${found} 个`;
+            }
+
+            if (current === 0 && total > 0) {
+                log(`第 ${pass} 轮开始，待测 ${total} 个子网，当前已保留 ${found} 个`);
+            }
+        }
+
+        function startUnifiedTask() {
+            const ipType = parseInt(document.getElementById('ipType').value);
+            const threads = parseInt(document.getElementById('scanThreads').value) || 100;
+            const port = parseInt(document.getElementById('testPort').value);
+            const delay = parseInt(document.getElementById('testDelay').value) || 500;
+            const speedUrlInput = document.getElementById('speedUrl');
+            const speedUrl = speedUrlInput.value.trim();
+            try {
+                if (speedUrl) {
+                    localStorage.setItem('cfdata_speed_url', speedUrl);
+                    if (window.Android && typeof Android.saveSpeedUrl === 'function') {
+                        Android.saveSpeedUrl(speedUrl);
+                    }
+                }
+            } catch (e) {}
+            
+            const btn = document.getElementById('btnStart');
+            btn.disabled = true;
+            isBusyAction = false;
+            isScanRunning = true;
+            isScanPaused = false;
+            setActionButtonsDisabled(true);
+            updatePrimaryButton();
+            
+            document.querySelector('#scanTable tbody').innerHTML = '';
+            document.querySelector('#testTable tbody').innerHTML = '';
+            document.querySelector('#dcTable tbody').innerHTML = '';
+            document.getElementById('dcSection').style.display = 'none';
+            
+            const pb = document.getElementById('progressBar');
+            pb.style.background = ''; 
+            pb.style.backgroundColor = '';
+            
+            scanResultsCount = 0;
+            testResultsCount = 0;
+            dcList = [];
+            testedDCs.clear();
+            currentTestingDC = '';
+
+            scanData = [];
+            testData = [];
+            
+            updateBadge('scanCount', 0);
+            updateBadge('testCount', 0);
+            updateBadge('dcCount', 0);
+            
+            switchTab('scan');
+
+            const et = document.getElementById('exportText');
+            if (et) et.value = '';
+            const ec = document.getElementById('exportCount');
+            if (ec) ec.textContent = '0 个 IP';
+
+            const sampleEl = document.getElementById('scanSample');
+            const timeoutEl = document.getElementById('scanTimeout');
+            const looseEl = document.getElementById('scanLoose');
+            const sampleVal = parseInt(sampleEl ? sampleEl.value : '1200');
+            const timeoutVal = parseInt(timeoutEl ? timeoutEl.value : '1500');
+
+            const payload = {
+                type: 'start_task',
+                data: {
+                    ipType, threads, port, delay,
+                    sample: (!isNaN(sampleVal) && sampleVal > 0) ? sampleVal : 1200,
+                    timeout: (!isNaN(timeoutVal) && timeoutVal >= 200) ? timeoutVal : 1500,
+                    loose: !!(looseEl && looseEl.value === '1')
+                }
+            };
+            if (speedUrl) {
+                payload.data.speedUrl = speedUrl;
+            }
+
+            ws.send(JSON.stringify(payload));
+            
+            document.getElementById('progressBox').style.display = 'block';
+            updateProgress(0, 100, "准备中");
+        }
+        
+        function showDCSelection(data) {
+            dcList = data;
+            renderDCTable();
+
+            document.getElementById('dcSection').style.display = 'block';
+            updatePrimaryButton();
+            document.getElementById('progressBar').textContent = isScanPaused ? '扫描已暂停，可继续扫描或直接测试' : '扫描完成，请选择数据中心';
+
+            log(isScanPaused ? "扫描已暂停，当前结果已按延迟排序，可继续扫描" : "扫描完成，已按延迟排序，等待选择数据中心");
+            document.getElementById('dcSection').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function renderDCTable() {
+            const tbody = document.querySelector('#dcTable tbody');
+            tbody.innerHTML = '';
+            
+            dcList.forEach(dc => {
+                const isTested = testedDCs.has(dc.DataCenter);
+                const isTesting = currentTestingDC === dc.DataCenter;
+                
+                let btnHtml;
+                if (isTesting) {
+                    btnHtml = `<button class="action-btn" disabled>测试中...</button>`;
+                } else if (isTested) {
+                    btnHtml = `<button class="action-btn selected" onclick="selectDC('${dc.DataCenter}')">重新测试</button>`;
+                } else {
+                    btnHtml = `<button class="action-btn" onclick="selectDC('${dc.DataCenter}')">选择测试</button>`;
+                }
+                
+                const row = `<tr id="dc-row-${dc.DataCenter}">
+                    <td><strong>${dc.DataCenter}</strong></td>
+                    <td>${dc.Region || ''}</td>
+                    <td>${dc.City}</td>
+                    <td>${dc.IPCount}</td>
+                    <td>${dc.MinLatency} ms</td>
+                    <td>${btnHtml}</td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+            
+            updateBadge('dcCount', dcList.length);
+        }
+
+        function selectDC(dc) {
+            if (isDetailedTestRunning) {
+                log('当前已有数据测试任务，请等待完成后再试');
+                return;
+            }
+
+            const port = parseInt(document.getElementById('testPort').value);
+            const delay = parseInt(document.getElementById('testDelay').value);
+
+            document.querySelector('#testTable tbody').innerHTML = '';
+            testResultsCount = 0;
+            updateBadge('testCount', 0);
+
+            testData = [];
+            isDetailedTestRunning = true;
+            currentTestingDC = dc;
+            renderDCTable();
+
+            document.getElementById('testingDC').textContent = `当前: ${dc}`;
+
+            const statusSpan = document.getElementById('currentTestDC');
+            statusSpan.textContent = `测试中: ${dc}`;
+            statusSpan.className = 'test-status testing';
+            statusSpan.style.display = 'inline-block';
+
+            ws.send(JSON.stringify({
+                type: 'start_test',
+                data: { dc, port, delay }
+            }));
+
+            log("开始测试数据中心: " + dc);
+            switchTab('test');
+        }
+        
+        function onTestComplete() {
+            isDetailedTestRunning = false;
+            if (currentTestingDC) {
+                testedDCs.add(currentTestingDC);
+                log(`数据中心 ${currentTestingDC} 测试完成，已排序`);
+            }
+
+            currentTestingDC = '';
+            renderDCTable();
+
+            const statusSpan = document.getElementById('currentTestDC');
+            statusSpan.textContent = '当前测试完成';
+            statusSpan.className = 'test-status done';
+
+            document.getElementById('testingDC').textContent = '';
+            document.getElementById('progressBar').textContent = '测试完成';
+        }
+
+        function runSpeedTest(ip) {
+            const ipId = ip.replace(/:/g, '_').replace(/\./g, '_');
+            const btn = document.getElementById('btn-speed-' + ipId);
+            if(btn) {
+                btn.innerHTML = "⏳ 测速中...";
+                btn.disabled = true;
+                btn.classList.add('loading');
+            }
+            
+            const port = parseInt(document.getElementById('testPort').value);
+            const speedUrlInput = document.getElementById('speedUrl');
+            const speedUrl = speedUrlInput ? speedUrlInput.value.trim() : "";
+
+            if (speedUrl) {
+                try {
+                    localStorage.setItem('cfdata_speed_url', speedUrl);
+                    if (window.Android && typeof Android.saveSpeedUrl === 'function') {
+                        Android.saveSpeedUrl(speedUrl);
+                    }
+                } catch (e) {}
+            }
+
+            ws.send(JSON.stringify({
+                type: 'start_speed_test',
+                data: { ip, port, speedUrl }
+            }));
+        }
+
+        // 复制 IP 功能
+        function copyToClipboard(text, element) {
+            const showCopied = () => {
+                const originalText = element.textContent;
+                element.textContent = "已复制!";
+                element.style.color = "var(--success-color)";
+                element.style.fontWeight = "bold";
+
+                setTimeout(() => {
+                    element.textContent = originalText;
+                    element.style.color = "";
+                    element.style.fontWeight = "";
+                }, 1000);
+            };
+
+            const fallbackCopy = () => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.setAttribute('readonly', 'readonly');
+                textarea.style.position = 'fixed';
+                textarea.style.top = '-9999px';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                textarea.setSelectionRange(0, textarea.value.length);
+
+                let copied = false;
+                try {
+                    copied = document.execCommand('copy');
+                } catch (err) {
+                    copied = false;
+                }
+
+                document.body.removeChild(textarea);
+                if (copied) {
+                    showCopied();
+                } else {
+                    log('复制失败，请手动复制 IP');
+                }
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(showCopied).catch(() => {
+                    fallbackCopy();
+                });
+                return;
+            }
+
+            fallbackCopy();
+        }
+
+        function addScanResult(res) {
+            scanResultsCount++;
+            updateBadge('scanCount', scanResultsCount);
+            scanData.push(res);
+            renderScanRow(res);
+        }
+
+        function renderScanRow(res) {
+            const row = `<tr>
+                <td class="scan-ip-cell"><span class="copy-ip" onclick="copyToClipboard('${res.IP}', this)" title="点击复制IP">${res.IP}</span></td>
+                <td class="dc-text-cell">${res.DataCenter}</td>
+                <td class="dc-text-cell">${res.Region}</td>
+                <td class="dc-text-cell">${res.City}</td>
+                <td class="metric-cell"><span style="color:${getLatencyColor(res.LatencyStr)}">${res.LatencyStr}</span></td>
+            </tr>`;
+            
+            const tbody = document.querySelector('#scanTable tbody');
+            if(tbody.children.length > 500) tbody.removeChild(tbody.firstChild);
+            tbody.insertAdjacentHTML('beforeend', row);
+        }
+
+        function sortAndRenderScanResults() {
+            scanData.sort((a, b) => {
+                return parseFloat(a.LatencyStr) - parseFloat(b.LatencyStr);
+            });
+
+            const tbody = document.querySelector('#scanTable tbody');
+            tbody.innerHTML = ''; 
+
+            scanData.forEach(res => {
+                const row = `<tr>
+                    <td class="scan-ip-cell"><span class="copy-ip" onclick="copyToClipboard('${res.IP}', this)" title="点击复制IP">${res.IP}</span></td>
+                    <td class="dc-text-cell">${res.DataCenter}</td>
+                    <td class="dc-text-cell">${res.Region}</td>
+                    <td class="dc-text-cell">${res.City}</td>
+                    <td class="metric-cell"><span style="color:${getLatencyColor(res.LatencyStr)}">${res.LatencyStr}</span></td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+
+        function addTestResult(res) {
+            testResultsCount++;
+            updateBadge('testCount', testResultsCount);
+            // 实时渲染一行
+            renderTestRow(res);
+        }
+
+        // 新增：渲染所有测试结果（用于后端排序后的完整刷新）
+        function renderAllTestResults() {
+            const tbody = document.querySelector('#testTable tbody');
+            tbody.innerHTML = ''; 
+            // 这里的 testData 已经是后端排好序的了
+            testData.forEach(res => {
+                renderTestRow(res);
+            });
+        }
+
+        function renderTestRow(res) {
+            const ipId = res.IP.replace(/:/g, '_').replace(/\./g, '_');
+            const avgLat = (res.AvgLatency / 1000000).toFixed(0);
+            
+            const row = `<tr>
+                <td class="test-ip-cell"><span class="copy-ip" onclick="copyToClipboard('${res.IP}', this)" title="点击复制IP" style="font-weight:500">${res.IP}</span></td>
+                <td class="metric-cell">${(res.LossRate * 100).toFixed(0)}%</td>
+                <td class="metric-cell">${(res.MinLatency / 1000000).toFixed(0)} ms</td>
+                <td class="metric-cell">${(res.MaxLatency / 1000000).toFixed(0)} ms</td>
+                <td class="metric-cell" style="color:${getLatencyColor(avgLat)}">${avgLat} ms</td>
+                <td id="speed-cell-${ipId}" class="speed-result">
+                    <button class="action-btn" id="btn-speed-${ipId}" onclick="runSpeedTest('${res.IP}')">测速</button>
+                </td>
+            </tr>`;
+            document.querySelector('#testTable tbody').insertAdjacentHTML('beforeend', row);
+        }
+        
+        function getLatencyColor(latencyStr) {
+            const latency = parseFloat(latencyStr);
+            if(isNaN(latency)) return 'inherit';
+            if(latency < 100) return '#10b981'; 
+            if(latency < 200) return '#f59e0b'; 
+            return '#ef4444'; 
+        }
+
+        function getSpeedResultColor(speedText) {
+            const isDark = document.body.classList.contains('dark-theme');
+            let color = isDark ? '#e5e7eb' : '#1f2937';
+
+            if (speedText.includes('MB/s')) {
+                const val = parseFloat(speedText);
+                if (val > 10) color = '#10b981';
+                else if (val > 5) color = '#f59e0b';
+                else color = isDark ? '#f8fafc' : '#1f2937';
+            } else if (speedText.includes('连接错误') || speedText.includes('URL解析错误')) {
+                color = isDark ? '#fca5a5' : '#b91c1c';
+            }
+
+            return color;
+        }
+
+        function refreshSpeedResultColors() {
+            document.querySelectorAll('#testTable td[id^="speed-cell-"] strong.speed-result').forEach(resultEl => {
+                const text = resultEl.textContent.trim();
+                if (!text) return;
+                resultEl.style.color = getSpeedResultColor(text);
+            });
+        }
+
+        function updateSpeedResult(data) {
+            const ipId = data.ip.replace(/:/g, '_').replace(/\./g, '_');
+            const cell = document.getElementById('speed-cell-' + ipId);
+            if (cell) {
+                cell.innerHTML = `<strong class="speed-result" style="color:${getSpeedResultColor(data.speed)}">${data.speed}</strong>`;
+            }
+        }
+        
+        function updateBadge(id, count) {
+            document.getElementById(id).textContent = count;
+        }
+
+        function updateProgress(current, total, statusText) {
+            const bar = document.getElementById('progressBar');
+            const percent = Math.round((current / total) * 100) + '%';
+            bar.style.width = percent;
+            bar.textContent = `${statusText} ${percent}`;
+        }
+
+        function updateStatus(text, connected) {
+            const el = document.getElementById('status');
+            const iconEl = el.querySelector('.status-icon');
+            const textEl = el.querySelector('.status-text');
+            const nextText = typeof text === 'string' ? text.replace(/^[●!·\s]+/, '') : text;
+            if (textEl) {
+                textEl.textContent = nextText;
+            } else {
+                el.textContent = nextText;
+            }
+
+            if(connected) {
+                if (iconEl) iconEl.textContent = '●';
+                el.style.background = 'var(--status-bg)';
+                el.style.color = 'var(--status-text)';
+            } else {
+                if (iconEl) iconEl.textContent = '!';
+                el.style.background = document.body.classList.contains('dark-theme') ? '#3f1d24' : '#fef2f2';
+                el.style.color = document.body.classList.contains('dark-theme') ? '#fca5a5' : '#991b1b';
+            }
+        }
+
+        function applyTheme(mode) {
+            const resolvedMode = mode === 'dark' ? 'dark' : 'light';
+
+            document.body.classList.toggle('dark-theme', resolvedMode === 'dark');
+            document.getElementById('themeLight')?.classList.toggle('active', mode === 'light');
+            document.getElementById('themeDark')?.classList.toggle('active', mode === 'dark');
+
+            const statusEl = document.getElementById('status');
+            const statusText = statusEl?.querySelector('.status-text')?.textContent || '';
+            if (statusText) {
+                const connected = !statusText.includes('断开');
+                updateStatus(statusText, connected);
+            }
+            refreshSpeedResultColors();
+        }
+
+        function setThemeMode(mode) {
+            const nextMode = mode === 'dark' ? 'dark' : 'light';
+            try {
+                localStorage.setItem('cfdata_theme_mode', nextMode);
+            } catch (e) {}
+            window.__cfThemeMode = nextMode;
+            applyTheme(nextMode);
+        }
+
+        function initTheme() {
+            let mode = 'light';
+            try {
+                const saved = localStorage.getItem('cfdata_theme_mode');
+                if (saved === 'light' || saved === 'dark') {
+                    mode = saved;
+                }
+            } catch (e) {}
+
+            window.__cfThemeMode = mode;
+            applyTheme(mode);
+        }
+
+        function log(text) {
+            const box = document.getElementById('logBox');
+            const time = new Date().toLocaleTimeString();
+            box.innerHTML += `<div><span style="opacity:0.6">[${time}]</span> ${text}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            const tabs = document.querySelectorAll('.tab');
+            if(tabId === 'scan') {
+                tabs[0].classList.add('active');
+            } else {
+                tabs[1].classList.add('active');
+            }
+            
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        // ----------------------- 全量 IP 导出 -----------------------
+
+        function cfdataNotify(msg) {
+            try { log(msg); } catch (e) {}
+            if (window.Android && typeof Android.toast === 'function') {
+                try { Android.toast(msg); } catch (e) {}
+            }
+        }
+
+        function cfdataStamp() {
+            const d = new Date(), p = n => (n < 10 ? '0' : '') + n;
+            return '' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes());
+        }
+
+        function applyNetPreset() {
+            const el = document.getElementById('netPreset');
+            const v = el ? el.value : 'mobile';
+            const cfg = { mobile: [64, 1200, 1500], wifi: [100, 2400, 1000], full: [64, 6534, 1500] }[v];
+            if (!cfg) return;
+            const set = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
+            set('scanThreads', cfg[0]); set('scanSample', cfg[1]); set('scanTimeout', cfg[2]);
+            cfdataNotify('已切换预设：并发 ' + cfg[0] + ' / 采样 ' + cfg[1] + ' / 超时 ' + cfg[2] + 'ms');
+        }
+
+        // 优先从服务端 /api/ips 取「全量」；连的是旧版服务时回落抓表格 DOM
+        async function cfdataFetchText() {
+            try {
+                const r = await fetch('/api/ips?format=txt', { cache: 'no-store' });
+                if (r.ok) {
+                    const raw = (await r.text()).trim();
+                    if (raw) {
+                        const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                        const good = lines.filter(s => /^[0-9a-f:.]+$/i.test(s));
+                        if (good.length > 0 && good.length === lines.length) return good.join('\n');
+                    }
+                }
+            } catch (e) {}
+            const ips = [];
+            document.querySelectorAll('#testTable tbody .copy-ip, #scanTable tbody .copy-ip').forEach(el => {
+                const v = (el.textContent || '').trim();
+                if (v && ips.indexOf(v) < 0) ips.push(v);
+            });
+            return ips.join('\n');
+        }
+
+        async function cfdataRefresh(silent) {
+            const text = await cfdataFetchText();
+            const n = text ? text.split('\n').length : 0;
+            const ta = document.getElementById('exportText');
+            const cnt = document.getElementById('exportCount');
+            if (ta && ta.value !== text) ta.value = text;
+            if (cnt) cnt.textContent = n + ' 个 IP';
+            if (!silent) cfdataNotify('已载入 ' + n + ' 个 IP');
+            return text;
+        }
+
+        async function cfdataCopyAll() {
+            const text = await cfdataRefresh(true);
+            if (!text) { cfdataNotify('还没有扫描到 IP，先跑一次扫描'); return; }
+            const n = text.split('\n').length;
+            let copied = false;
+            if (window.Android && typeof Android.copyText === 'function') {
+                try { Android.copyText(text); copied = true; } catch (e) {}
+            }
+            if (!copied) {
+                const ta = document.getElementById('exportText');
+                ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+                try { copied = document.execCommand('copy'); } catch (e) {}
+                if (!copied && navigator.clipboard && window.isSecureContext) {
+                    try { await navigator.clipboard.writeText(text); copied = true; } catch (e) {}
+                }
+            }
+            cfdataNotify(copied ? ('已复制 ' + n + ' 个 IP，可直接粘贴') : '自动复制失败，请长按文本框「全选」后复制');
+        }
+
+        async function cfdataSaveTxt() {
+            const text = await cfdataRefresh(true);
+            if (!text) { cfdataNotify('还没有扫描到 IP，先跑一次扫描'); return; }
+            const name = 'cf_ips_' + cfdataStamp() + '.txt';
+            if (window.Android && typeof Android.saveTxt === 'function') {
+                try { Android.saveTxt(text + '\n', name); return; } catch (e) {}
+            }
+            const blob = new Blob([text + '\n'], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = name;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+            cfdataNotify('已导出 ' + name);
+        }
+
+        async function cfdataShare() {
+            const text = await cfdataRefresh(true);
+            if (!text) { cfdataNotify('还没有扫描到 IP，先跑一次扫描'); return; }
+            if (window.Android && typeof Android.shareText === 'function') {
+                try { Android.shareText(text); return; } catch (e) {}
+            }
+            if (navigator.share) {
+                try { await navigator.share({ text: text }); return; } catch (e) {}
+            }
+            cfdataCopyAll();
+        }
+
+        async function cfdataDiag() {
+            cfdataNotify('正在自检（约 5~15 秒）...');
+            try {
+                const r = await fetch('/api/diag?probe=1', { cache: 'no-store' });
+                const d = await r.json();
+                const p = d.probe || {};
+                const v4 = d.resources['ips-v4.txt'] || {};
+                const loc = d.resources['locations.json'] || {};
+                const msg =
+                    '资源：IPv4库 ' + (v4.exists ? '已内置 ' + v4.bytes + ' 字节' : '缺失（需联网下载）') + '\n' +
+                    '      位置库 ' + (loc.exists ? '已内置' : '缺失') + '\n' +
+                    '抽样探测：' + (p.sample || 0) + ' 个 → 有效 ' + (p.valid || 0) + ' 个\n' +
+                    '  TCP通 ' + (p.tcp_ok || 0) + ' / HTTP响应 ' + (p.http_ok || 0) +
+                    ' / CF-RAY ' + (p.cf_ray || 0) + ' / TLS兜底 ' + (p.tls_other || 0) + '\n' +
+                    '当前结果：扫描 ' + d.scan_results + ' 个 / 详细测试 ' + d.test_results + ' 个\n' +
+                    '参数：超时 ' + (d.params.timeout_ms || 0) + 'ms / 采样 ' + (d.params.sample || 0) + ' / 宽松 ' + (d.params.loose ? '开' : '关');
+                log('[自检] ' + msg.replace(/\n/g, ' | '));
+                if (window.Android && typeof Android.showDiag === 'function') Android.showDiag(msg);
+                else alert(msg);
+                // 结论提示
+                if (p.ran && (p.valid || 0) === 0) {
+                    if ((p.tcp_ok || 0) === 0) cfdataNotify('自检结论：TCP 完全不通 → 检查网络权限 / 蜂窝网络是否封锁 80 端口');
+                    else if ((p.http_ok || 0) === 0) cfdataNotify('自检结论：TCP 通但无 HTTP 响应 → 尝试「宽松模式」或换 WiFi');
+                    else cfdataNotify('自检结论：有 HTTP 响应但无 CF 特征 → 可能被运营商劫持，试试换端口/网络');
+                }
+            } catch (e) {
+                cfdataNotify('自检失败：服务未连接或版本过旧');
+            }
+        }
+
+        // 供安卓原生底部工具条调用：结果通过 Android.onIPList 回传，避免 JS 异步取值麻烦
+        window.cfdataRequestIPs = async function(action) {
+            const text = await cfdataRefresh(true);
+            const n = text ? text.split('\n').length : 0;
+            if (window.Android && typeof Android.onIPList === 'function') {
+                try { Android.onIPList(action, text || '', n); return; } catch (e) {}
+            }
+            if (action === 'copy') cfdataCopyAll();
+            else if (action === 'save') cfdataSaveTxt();
+            else if (action === 'share') cfdataShare();
+        };
+
+        // ----------------------- 初始化 -----------------------
+        (function init() {
+            initTheme();
+            try {
+                const saved = localStorage.getItem('cfdata_speed_url');
+                if (saved) {
+                    const input = document.getElementById('speedUrl');
+                    if (input) input.value = saved;
+                }
+            } catch (e) {}
+            connect();
+        })();
+    </script>
+</body>
+</html>

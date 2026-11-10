@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+build/
+local.properties
+.idea/
+src/main/jniLibs/*/libcfdata.so
+# 二进制产物不进仓库：libcfdata.so 由 CI 编译，jks 以 cfdata.jks.b64 文本形式入库
+cfdata.jks
+cfdata-windows-amd64.exe
+cfdata-test.exe
+_check.js
+_runtime_test/
+# 本地辅助产物，不进仓库
+*.zip
+windows-preview/
+push-to-github.bat

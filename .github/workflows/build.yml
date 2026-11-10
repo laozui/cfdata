@@ -1,0 +1,63 @@
+name: Build cfdata Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 纯 Go（CGO_ENABLED=0）交叉编译，不需要 NDK / gomobile。
+      # Go 1.26 只有 android/arm64 支持纯 Go，其余 ABI 强制 cgo 外部链接，故只出 arm64。
+      # 输出名为 libcfdata.so，实际是 PIE 可执行文件，运行时由 App 以子进程方式启动。
+      - name: Cross-compile Go core for arm64
+        run: |
+          set -eo pipefail
+          out="$GITHUB_WORKSPACE/src/main/jniLibs/arm64-v8a/libcfdata.so"
+          mkdir -p "$(dirname "$out")"
+          GOOS=android GOARCH=arm64 CGO_ENABLED=0 \
+            go -C "$GITHUB_WORKSPACE/go" build -trimpath -ldflags="-s -w" -o "$out" .
+          file "$out" || true
+          ls -lh "$out"
+
+      # 签名库以 base64 文本入库（MCP 通道只能推文本），构建前还原成 jks
+      - name: Restore signing keystore
+        run: |
+          base64 -d cfdata.jks.b64 > cfdata.jks
+          ls -l cfdata.jks
+
+      - name: Build APK with Gradle
+        run: |
+          gradle wrapper --gradle-version 8.4
+          ./gradlew assembleRelease --stacktrace
+          ls -lh build/outputs/apk/release/
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfdata-android
+          path: build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
